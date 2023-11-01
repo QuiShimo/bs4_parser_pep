@@ -10,8 +10,10 @@ from requests_cache import CachedSession
 from tqdm import tqdm
 
 from configs import configure_argument_parser, configure_logging
-from constants import BASE_DIR, EXPECTED_STATUS, MAIN_DOC_URL, PEPS_URL, \
-    PARSER_TYPE, HTMLTag, VERSION_STATUS_PATTERN, PDF_A4_PATTERN
+from constants import (
+    BASE_DIR, EXPECTED_STATUS, MAIN_DOC_URL, PEPS_URL, PARSER_TYPE, HTMLTag,
+    VERSION_STATUS_PATTERN, PDF_A4_PATTERN
+)
 from exceptions import ParserFindTagException
 from outputs import control_output
 from utils import ResultWarning, get_pep_status, get_response, find_tag
@@ -26,7 +28,7 @@ def whats_new(session: CachedSession) -> Optional[List[Tuple]]:
     if response is None:
         return
     logging.info('Parsing news started')
-    soup = BeautifulSoup(response.text, features='lxml')
+    soup = BeautifulSoup(response.text, features=PARSER_TYPE)
     main_div = find_tag(soup, HTMLTag.SECTION, {'id': 'what-s-new-in-python'})
     div_with_ul = find_tag(main_div, HTMLTag.DIV, {'class': 'toctree-wrapper'})
     section_by_python = div_with_ul.find_all(
@@ -70,10 +72,9 @@ def latest_versions(session: CachedSession) -> Optional[List[Tuple]]:
     else:
         raise ParserFindTagException('Found nothing')
     results = [('Ссылка на документацию', 'Версия', 'Статус')]
-    pattern = VERSION_STATUS_PATTERN
     for a_tag in tqdm(a_tags):
         link = a_tag['href']
-        text_match = re.search(pattern, a_tag.text)
+        text_match = re.search(VERSION_STATUS_PATTERN, a_tag.text)
         if text_match is not None:
             version, status = text_match.groups()
         else:
