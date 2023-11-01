@@ -10,7 +10,8 @@ from requests_cache import CachedSession
 from tqdm import tqdm
 
 from configs import configure_argument_parser, configure_logging
-from constants import BASE_DIR, EXPECTED_STATUS, MAIN_DOC_URL, PEPS_URL
+from constants import BASE_DIR, EXPECTED_STATUS, MAIN_DOC_URL, PEPS_URL, \
+    PARSER_TYPE, HTMLTag, VERSION_STATUS_PATTERN, PDF_A4_PATTERN
 from exceptions import ParserFindTagException
 from outputs import control_output
 from utils import ResultWarning, get_pep_status, get_response, find_tag
@@ -26,27 +27,22 @@ def whats_new(session: CachedSession) -> Optional[List[Tuple]]:
         return
     logging.info('Parsing news started')
     soup = BeautifulSoup(response.text, features='lxml')
-    main_div = find_tag(soup, 'section', attrs={'id': 'what-s-new-in-python'})
-    div_with_ul = find_tag(
-        main_div,
-        'div',
-        attrs={'class': 'toctree-wrapper'}
-    )
+    main_div = find_tag(soup, HTMLTag.SECTION, {'id': 'what-s-new-in-python'})
+    div_with_ul = find_tag(main_div, HTMLTag.DIV, {'class': 'toctree-wrapper'})
     section_by_python = div_with_ul.find_all(
-        'li',
-        attrs={'class': 'toctree-l1'}
+        HTMLTag.LI, attrs={'class': 'toctree-l1'}
     )
     result = [('Ссылка на статью', 'Заголовок', 'Редактор, Автор')]
     for section in tqdm(section_by_python):
-        version_a_tag = section.find('a')
+        version_a_tag = section.find(HTMLTag.A)
         href = version_a_tag['href']
         version_link = urljoin(whats_new_url, href)
         response = get_response(session, version_link)
         if response is None:
             continue
-        soup = BeautifulSoup(response.text, features='lxml')
-        h1 = find_tag(soup, 'h1')
-        dl = soup.find(name='dl')
+        soup = BeautifulSoup(response.text, features=PARSER_TYPE)
+        h1 = find_tag(soup, HTMLTag.H1)
+        dl = find_tag(soup, HTMLTag.DL)
         result.append((
             version_link,
             h1.text.strip().replace('\n', ' '),
@@ -64,17 +60,17 @@ def latest_versions(session: CachedSession) -> Optional[List[Tuple]]:
     if response is None:
         return
     logging.info('Getting latest version started')
-    soup = BeautifulSoup(response.text, features='lxml')
-    sidebar = soup.find(name='div', attrs={'class': 'sphinxsidebarwrapper'})
-    ul_tags = sidebar.find_all(name='ul')
+    soup = BeautifulSoup(response.text, features=PARSER_TYPE)
+    sidebar = find_tag(soup, HTMLTag.DIV, {'class': 'sphinxsidebarwrapper'})
+    ul_tags = sidebar.find_all(HTMLTag.UL)
     for ul in ul_tags:
         if 'All versions' in ul.text:
-            a_tags = ul.find_all('a')
+            a_tags = ul.find_all(HTMLTag.A)
             break
     else:
         raise ParserFindTagException('Found nothing')
     results = [('Ссылка на документацию', 'Версия', 'Статус')]
-    pattern = r'Python (?P<version>\d\.\d+) \((?P<status>.*)\)'
+    pattern = VERSION_STATUS_PATTERN
     for a_tag in tqdm(a_tags):
         link = a_tag['href']
         text_match = re.search(pattern, a_tag.text)
@@ -95,11 +91,10 @@ def download(session: CachedSession) -> None:
     response = get_response(session, download_url)
     if response is None:
         return
-    soup = BeautifulSoup(response.text, features='lxml')
-    table_tag = soup.find(name='table', attrs={'class': 'docutils'})
+    soup = BeautifulSoup(response.text, features=PARSER_TYPE)
+    table_tag = find_tag(soup, HTMLTag.TABLE, {'class': 'docutils'})
     pdf_a4_tag = table_tag.find(
-        name='a',
-        attrs={'href': re.compile(r'.+pdf-a4\.zip$')}
+        HTMLTag.A, {'href': re.compile(PDF_A4_PATTERN)}
     )
     pdf_a4_link = pdf_a4_tag['href']
     archive_url = urljoin(download_url, pdf_a4_link)
@@ -122,16 +117,16 @@ def pep(session: CachedSession) -> Optional[List[Tuple]]:
         return
     logging.info('Parsing PEP statuses started')
     results, warnings = defaultdict(int), []
-    soup = BeautifulSoup(response.text, features='lxml')
-    section_div = find_tag(soup, 'section', attrs={'id': 'numerical-index'})
+    soup = BeautifulSoup(response.text, features=PARSER_TYPE)
+    section_div = find_tag(soup, HTMLTag.SECTION, {'id': 'numerical-index'})
     tr_divs = BeautifulSoup.find_all(section_div, 'tr')
     for tr_div in tqdm(tr_divs[1:]):
-        abbr_div = find_tag(tr_div, 'abbr')
+        abbr_div = find_tag(tr_div, HTMLTag.ABBR)
         short_status = abbr_div.text[1:]
         a_div = find_tag(
             tr_div,
-            'a',
-            attrs={'class': 'pep reference internal'}
+            HTMLTag.A,
+            {'class': 'pep reference internal'}
         )
         short_url = a_div.attrs.get('href', '')
         url = urljoin(PEPS_URL, short_url)

@@ -7,6 +7,7 @@ from requests import RequestException
 from requests.models import Response
 from requests_cache import CachedSession
 
+from constants import ENCODING, PARSER_TYPE
 from exceptions import ParserFindTagException
 
 
@@ -23,7 +24,7 @@ def get_response(session: CachedSession, url: str) -> Response:
     """
     try:
         response = session.get(url)
-        response.encoding = 'utf-8'
+        response.encoding = ENCODING
         return response
     except RequestException:
         logging.exception(
@@ -52,7 +53,7 @@ def get_pep_status(session: CachedSession, url: str) -> str:
     if not url:
         return status
     response = get_response(session, url)
-    pep_soup = BeautifulSoup(response.text, features='lxml')
+    pep_soup = BeautifulSoup(response.text, features=PARSER_TYPE)
     dl_div = find_tag(pep_soup, 'dl')
     dt_divs = BeautifulSoup.find_all(dl_div, 'dt')
     for dt_div in dt_divs:

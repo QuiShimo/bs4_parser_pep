@@ -3,7 +3,7 @@ from argparse import ArgumentParser
 from logging.handlers import RotatingFileHandler
 from typing import KeysView
 
-from constants import BASE_DIR
+from constants import BASE_DIR, OutputType
 
 LOG_FORMAT = '"%(asctime)s - [%(levelname)s] - %(message)s"'
 DT_FORMAT = '%d.%m.%Y %H:%M:%S'
@@ -28,7 +28,7 @@ def configure_argument_parser(available_modes: KeysView) -> ArgumentParser:
     parser.add_argument(
         '-o',
         '--output',
-        choices=('pretty', 'file'),
+        choices=(OutputType.PRETTY, OutputType.FILE),
         help='Дополнительные способы вывода данных'
     )
     return parser
